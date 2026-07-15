@@ -19,6 +19,81 @@ It implements:
 
 Direct IP-to-IP: point a softphone straight at the endpoint. No registrar, no auth.
 
+## High-level design
+
+```mermaid
+flowchart LR
+  Softphone["Softphone<br/>MicroSIP / Linphone"]
+
+  subgraph sipdemoProc ["sipdemo.exe"]
+    SipUas["SIP UAS<br/>UDP :5060"]
+    Sdp["SDP offer/answer<br/>PCMU/PCMA + telephone-event"]
+    RtpRecv["RTP recv<br/>UDP :40000"]
+    Jitter["Jitter buffer"]
+    Queue["BoundedQueue"]
+    Codec["G.711 decode"]
+    Dtmf["RFC 4733<br/>DtmfDecoder"]
+    Upsample["8 kHz → 16 kHz"]
+    Echo["G.711 encode<br/>symmetric RTP echo"]
+    Ws["WsClient<br/>ping/pong reader"]
+  end
+
+  Gateway["Python gateway<br/>FastAPI + Vosk<br/>ws://127.0.0.1:8080/stream"]
+
+  Softphone -->|"INVITE / ACK / BYE"| SipUas
+  SipUas --> Sdp
+  Softphone -->|"RTP PT 0/8 voice"| RtpRecv
+  Softphone -->|"RTP PT 101 DTMF"| RtpRecv
+  RtpRecv -->|"voice"| Jitter
+  RtpRecv -->|"telephone-event"| Dtmf
+  Jitter --> Queue --> Codec
+  Codec --> Upsample --> Ws
+  Codec --> Echo --> Softphone
+  Dtmf -->|"JSON digit"| Ws
+  Ws -->|"PCM binary + DTMF text"| Gateway
+  Gateway -->|"STT transcripts"| Terminal["Demo terminal"]
+```
+
+### Call + media sequence
+
+```mermaid
+sequenceDiagram
+  participant Phone as Softphone
+  participant UAS as sipdemo SIP
+  participant Media as MediaSession
+  participant AI as Vosk gateway
+
+  Phone->>UAS: INVITE + SDP offer
+  UAS->>Phone: 100 Trying / 180 Ringing
+  UAS->>Phone: 200 OK + SDP answer
+  Phone->>UAS: ACK
+  UAS->>Media: Start media
+  Media->>AI: WebSocket connect /stream
+  loop 20 ms
+    Phone->>Media: RTP audio
+    Media->>Phone: RTP echo
+    Media->>AI: PCM 16 kHz frames
+  end
+  Phone->>Media: RTP telephone-event
+  Media->>AI: JSON digit
+  AI-->>AI: print STT / keypad
+  Phone->>UAS: BYE
+  UAS->>Phone: 200 OK
+  Media->>AI: WS close
+```
+
+### Threading inside `MediaSession`
+
+| Thread | Job |
+|--------|-----|
+| main | SIP UDP + stats panel |
+| rtp-recv | Parse RTP, latch symmetric peer, DTMF vs voice branch |
+| playout | Pace jitter buffer at 20 ms → queue |
+| output | Decode → STT fork → echo encode/send |
+| WsClient reader | Drain server frames, answer ping/pong ([ISSUE-001](docs/ISSUES.md#issue-001--websocket-receive-buffer-never-drained-stt-dies-mid-call)) |
+
+Design intent: **RTP path never blocks on Vosk**. AI sits behind a WebSocket; if the gateway is down, the call and echo continue.
+
 ## Layout
 
 ```
@@ -28,9 +103,11 @@ sipdemo/
   src/...
   gateway/                 # Python FastAPI + Vosk STT
   scripts/build.ps1        # MSVC configure + build (+ optional -Test)
+  scripts/test.ps1         # build sipdemo_tests + ctest
   scripts/run-demo.ps1     # one-shot start/stop for local demo
   tests/*.cpp
   docs/talking_points.md
+  docs/ISSUES.md           # numbered postmortems (WS drain, deadlock, …)
 ```
 
 ## Build (Windows native — primary path)
@@ -88,9 +165,30 @@ cd C:\Users\Admin\Docs\C++\sipdemo
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Test
 
+# Run unit tests only (builds sipdemo_tests if needed, then ctest).
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1 -Filter Dtmf
+
 # Start Vosk gateway + sipdemo; Ctrl+C stops both.
 powershell -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1
 ```
+
+### Tests (CMake / CTest)
+
+GoogleTest is fetched by CMake (`SIPDEMO_BUILD_TESTS=ON`, default). Suites live
+under `tests/` (SIP, SDP, RTP, jitter, queue, G.711, DTMF, resample).
+
+```powershell
+# After configure:
+cmake --build build --config RelWithDebInfo --target sipdemo_tests
+ctest --test-dir build -C RelWithDebInfo --output-on-failure
+
+# Or the custom target:
+cmake --build build --config RelWithDebInfo --target check
+```
+
+On single-config generators (Ninja/Make): `cmake --build build --target check`
+or `ctest --test-dir build --output-on-failure`.
 
 Then dial `sip:127.0.0.1` from MicroSIP (SIP defaults to port 5060).  
 Avoid `sip:127.0.0.1:5060` in MicroSIP — that form often fails to dial; use the host-only URI instead.
@@ -142,4 +240,6 @@ Out (be ready to explain *why*): REGISTER/auth, TCP/TLS, forking, 100rel,
 re-INVITE, Record-Route, full Timer A–K retransmission machinery, multi-call,
 TTS / real LLM replies.
 
-See `docs/talking_points.md` for the interview cheat-sheet.
+See [`docs/talking_points.md`](docs/talking_points.md) for the interview cheat-sheet  
+and [`docs/ISSUES.md`](docs/ISSUES.md) for numbered postmortems (WS buffer drain,
+connect/reader deadlock, Windows UDP reset).

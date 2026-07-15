@@ -85,4 +85,13 @@ if(SIPDEMO_BUILD_TESTS)
   )
   target_link_libraries(sipdemo_tests PRIVATE sipdemo_core GTest::gtest_main)
   gtest_discover_tests(sipdemo_tests)
+
+  # Convenience target: `cmake --build build --target check` (or check-$Config).
+  # On multi-config generators (VS), pass -C via the build script / ctest.
+  add_custom_target(check
+    COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --output-on-failure --timeout 60
+    DEPENDS sipdemo_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running sipdemo unit tests (ctest)"
+  )
 endif()
