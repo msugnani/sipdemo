@@ -1,8 +1,8 @@
 # Issues log
 
-Numbered design / runtime issues we hit while building the demo, how they showed
-up, and how they were fixed. Useful interview talking points — each maps to a
-real failure mode in SIP/media + AI bridging.
+Numbered design / runtime issues encountered while building the demo, how they
+showed up, and how they were fixed. Each maps to a real failure mode in
+SIP/media + AI bridging.
 
 ---
 
@@ -38,11 +38,6 @@ After a successful handshake, spawn a **reader thread** that:
   for client frames),
 - treats **close (0x8)** as end-of-session,
 - ignores text/binary from the server (demo doesn’t need them).
-
-### Interview line
-
-> “Real-time media bridges must keep the control channel alive. A send-only WS
-> client looks fine in a 30-second smoke test and fails under keepalives.”
 
 ---
 
@@ -88,11 +83,6 @@ readerThread_ = std::thread(readerLoop)   // may lock for pong safely
 
 `close()` sets `readerStop_`, closes the socket (unblocks `recv`), then joins.
 
-### Interview line
-
-> “Never start a thread that needs a mutex you still hold. Lock scope and thread
-> lifetime have to be designed together.”
-
 ---
 
 ## ISSUE-003 — Windows UDP `WSAECONNRESET` aborts the media thread
@@ -122,16 +112,10 @@ RTP port triggered it easily.
    the SDP `c=`/`m=` address (separately improved echo reliability with
    MicroSIP).
 
-### Interview line
-
-> “UDP error models differ by OS. On Windows you must expect connection-reset
-> style errors on datagram sockets and never let media threads terminate the
-> process.”
-
 ---
 
 ## How we track these
 
 - Keep this file as the source of truth for demo postmortems.
 - Prefer fixing in code + a short entry here over a long GitHub Issues backlog
-  for a small interview repo; open GitHub issues if you want CI/discussion.
+  for a small repo; open GitHub issues if you want CI/discussion.

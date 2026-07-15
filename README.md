@@ -108,6 +108,7 @@ sipdemo/
   tests/*.cpp
   docs/talking_points.md
   docs/ISSUES.md           # numbered postmortems (WS drain, deadlock, …)
+  docs/PERFORMANCE.md      # SIMD / lock-free / RT / bench / socket I/O backlog
 ```
 
 ## Build (Windows native — primary path)
@@ -240,6 +241,8 @@ Out (be ready to explain *why*): REGISTER/auth, TCP/TLS, forking, 100rel,
 re-INVITE, Record-Route, full Timer A–K retransmission machinery, multi-call,
 TTS / real LLM replies.
 
-See [`docs/talking_points.md`](docs/talking_points.md) for the interview cheat-sheet  
-and [`docs/ISSUES.md`](docs/ISSUES.md) for numbered postmortems (WS buffer drain,
-connect/reader deadlock, Windows UDP reset).
+See [`docs/talking_points.md`](docs/talking_points.md) for component whiteboard notes,
+[`docs/ISSUES.md`](docs/ISSUES.md) for numbered postmortems (WS buffer drain,
+connect/reader deadlock, Windows UDP reset), and
+[`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for the optimization backlog
+(SIMD, lock-free media path, RT priority, benchmarking, select vs epoll).
