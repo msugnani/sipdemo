@@ -1,0 +1,7 @@
+# sipdemo — see `.cursor/rules/sipdemo-agent.mdc` for full Cursor rules.
+
+Loop protocol: track work in `tasks/todo.md`; verify with
+`powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1` (exit 0 only);
+log failures/fixes in `tasks/lessons.md`.
+
+Project map: `CLAUDE.md`. Multi-iteration fix skill: `.cursor/skills/automated-improver/`.

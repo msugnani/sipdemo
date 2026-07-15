@@ -1,0 +1,31 @@
+---
+description: Agent loop protocol, verification commands, and sipdemo coding constraints
+alwaysApply: true
+---
+
+# Cursor Project Rules — sipdemo
+
+## Agent Mode / Composer Loop Protocol
+
+1. Prefer **Plan Mode** before non-trivial code changes. Track progress in `tasks/todo.md`.
+2. Do **not** mark an issue solved until you run verification in the terminal and get **exit code 0**.
+3. If an iteration fails, trace the failure from **raw** terminal output. Write lessons to `tasks/lessons.md`.
+4. Use the Terminal tool automatically to build/test; do not claim tests passed without shell evidence.
+
+## Core stack commands (Windows)
+
+- Build: `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1`
+- Test: `powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1`
+- Demo: `powershell -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1`
+- CMake check target (after configure): `cmake --build build --config RelWithDebInfo --target check`
+
+## Coding constraints
+
+- C++17; match existing style in `include/sipdemo/` and `src/`.
+- Keep SIP/RTP paths free of blocking on STT/Vosk (AI stays behind WebSocket).
+- No new heavy dependencies without asking.
+- Update `docs/ISSUES.md` or `docs/PERFORMANCE.md` when fixing a documented class of bug or adding a backlog item.
+
+## Project context
+
+See root `CLAUDE.md` for component map.

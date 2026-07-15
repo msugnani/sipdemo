@@ -106,9 +106,11 @@ sipdemo/
   scripts/test.ps1         # build sipdemo_tests + ctest
   scripts/run-demo.ps1     # one-shot start/stop for local demo
   tests/*.cpp
-  docs/talking_points.md
-  docs/ISSUES.md           # numbered postmortems (WS drain, deadlock, …)
-  docs/PERFORMANCE.md      # SIMD / lock-free / RT / bench / socket I/O backlog
+  CLAUDE.md                # project/component map for agents
+  tasks/todo.md            # improver-loop milestone tracker
+  tasks/lessons.md         # improver-loop failure lessons
+  .cursor/rules/           # Cursor agent rules
+  .cursor/skills/          # project skills (e.g. automated-improver)
 ```
 
 ## Build (Windows native — primary path)
