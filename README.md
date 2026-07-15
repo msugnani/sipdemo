@@ -245,6 +245,6 @@ TTS / real LLM replies.
 
 See [`docs/talking_points.md`](docs/talking_points.md) for component whiteboard notes,
 [`docs/ISSUES.md`](docs/ISSUES.md) for numbered postmortems (WS buffer drain,
-connect/reader deadlock, Windows UDP reset), and
+connect/reader lock ordering, Windows UDP reset), and
 [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for the optimization backlog
 (SIMD, lock-free media path, RT priority, benchmarking, select vs epoll).

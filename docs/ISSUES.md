@@ -41,38 +41,48 @@ After a successful handshake, spawn a **reader thread** that:
 
 ---
 
-## ISSUE-002 — Mutex deadlock between `connect()` and the ping reader
+## ISSUE-002 — Holding `mu_` across reader-thread start
 
 | | |
 |---|---|
 | **Status** | Fixed |
 | **Component** | [`src/ws/WsClient.cpp`](../src/ws/WsClient.cpp) |
-| **Symptom** | Hang on call setup (or first ping) when starting the WebSocket reader; process appears stuck with media never fully starting. |
+| **Symptom** | Not a live demo hang — caught while adding the ISSUE-001 reader. TCP/`::connect` and the HTTP upgrade were fine either way. |
 
 ### What went wrong
 
-Early draft of `connect()`:
+Early draft published state and started the reader under one `lock_guard(mu_)`:
 
-1. Took `mu_`.
-2. Completed the HTTP upgrade.
-3. Set `connected_ = true`.
-4. **Started `readerThread_` while still holding `mu_`.**
+1. TCP connect + HTTP WebSocket upgrade on a **local** `fd` (no mutex needed).
+2. Under `mu_`: set `fd_` / `connected_ = true`, then **`std::thread(readerLoop)`**.
+3. Unlock only when that scope ended.
 
-The reader, on the first ping, called `sendFrameUnlocked` under `lock_guard(mu_)`
-to send a pong → **waited forever** for the lock still held by `connect()`.
+The reader answers ping→pong by locking `mu_` again. Spawning it while still
+holding the lock is a classic anti-pattern:
+
+- **Usually** not a permanent hang — `connect()` unlocks soon after the thread
+  constructor returns; the reader may only stall briefly if a ping races that
+  window.
+- **True deadlock** if `connect()` (or `close()`) also **waits on the reader**
+  (`join`, barrier, etc.) while still holding `mu_`, because the reader needs
+  the same mutex for pong / teardown.
+
+So this was a lock-ordering / lifecycle bug class, not “`connect()` couldn’t
+complete the handshake.”
 
 ```
 connect() thread          reader thread
     |                          |
   lock(mu_)                    |
   start reader  -------------> |
-  (still holds mu_)         lock(mu_)  ← DEADLOCK
-  … never unlocks              |
+  (still holds mu_)         lock(mu_)  ← blocks until unlock
+  unlock                       |       (or deadlock if connect also joins here)
 ```
 
 ### Fix
 
-Finish the handshake, **release `mu_`**, then start the reader:
+Handshake on a local `fd`, publish under a **brief** lock, **then** start the
+reader:
 
 ```text
 handshake under local fd
@@ -81,7 +91,8 @@ unlock
 readerThread_ = std::thread(readerLoop)   // may lock for pong safely
 ```
 
-`close()` sets `readerStop_`, closes the socket (unblocks `recv`), then joins.
+`close()` sets `readerStop_`, closes the socket (unblocks `recv`), then joins
+**without** holding `mu_` across the join.
 
 ---
 

@@ -169,5 +169,5 @@ problem — that’s when epoll/IOCP matter. For one softphone call, they don’
 
 ## Related reading in-tree
 
-- [`docs/ISSUES.md`](ISSUES.md) — failures we already fixed (WS drain, deadlock, WinUDP)
+- [`docs/ISSUES.md`](ISSUES.md) — failures we already fixed (WS drain, lock-across-thread-start, WinUDP)
 - [`docs/talking_points.md`](talking_points.md) — component whiteboard notes

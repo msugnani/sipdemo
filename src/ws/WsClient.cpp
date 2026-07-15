@@ -301,7 +301,8 @@ bool WsClient::connect(const std::string& url) {
         url_ = url;
         connected_ = true;
     }
-    // Start reader only after releasing mu_ so ping→pong cannot deadlock.
+    // Start reader only after releasing mu_: child may lock for ping→pong;
+    // holding mu_ across spawn (or join) is a lock-ordering hazard.
     readerThread_ = std::thread([this] { readerLoop(); });
     return true;
 }
